@@ -21,6 +21,7 @@ class User extends Authenticatable
         'name',
         'email',
         'password',
+        'username',
     ];
 
     /**
@@ -41,4 +42,12 @@ class User extends Authenticatable
     protected $casts = [
         'email_verified_at' => 'datetime',
     ];
+
+    /**
+     * Setup relation one to many
+     */
+      public function historySubmitScores()
+    {
+        return $this->hasMany(HistorySubmitScore::class);
+    }
 }
