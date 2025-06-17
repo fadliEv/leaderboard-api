@@ -19,7 +19,7 @@ return new class extends Migration
         $table->integer('level');
         $table->integer('score');
         $table->timestamps();
-        $table->index(['level', 'score']);
+        $table->index(['user_id', 'level', 'score']); // index for optimation query
     });
     }
 
