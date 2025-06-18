@@ -73,7 +73,7 @@ class LeaderboardController extends Controller
         return $pagedData->values();
     }
 
-    protected function getTotalRecords()
+    protected function getTotalRecords($username = null)
     {
         // Mengambil total records dari subquery leaderboard tanpa pagination
         $subQuery = DB::table('history_submit_score')
@@ -86,8 +86,14 @@ class LeaderboardController extends Controller
             ->join('users', 'users.id', '=', 't.user_id')
             ->select('users.id');
 
+        // Jika ada filter username, tambahkan kondisi WHERE
+        if ($username) {
+            $leaderboard->where('users.username', $username);
+        }
+
         return $leaderboard->count(); // Total jumlah users di leaderboard
     }
+
 
     protected function addRanking($data)
     {
