@@ -1,66 +1,167 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# **API Documentation: Leaderboard API & Assessment System**
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+## **Overview**
+This API is designed to handle the functionality of a **Leaderboard** for a game system. It allows users to submit scores, retrieve leaderboard rankings, and interact with an external system for assessment. The API is built using **Laravel 9+ (PHP 8+)** and uses **MySQL** for data storage and **Redis** for caching.
 
-## About Laravel
+### **Key Features**:
+- **Submit Score**: Allows players to submit their scores for a given level.
+- **Leaderboard**: Retrieves the leaderboard with the highest scores for each level, supports pagination and caching.
+- **Assessment**: Interacts with an external system using a secure signature for API requests.
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+---
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+## **Table of Contents**
+1. [API Routes](#api-routes)
+2. [Data Model](#data-model)
+3. [How to Use](#how-to-use)
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+---
 
-## Learning Laravel
+## **API Routes**
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework.
+### **1. Submit Score**
+**POST** `/api/submit-history`  
+Allows players to submit their scores.
 
-You may also try the [Laravel Bootcamp](https://bootcamp.laravel.com), where you will be guided through building a modern Laravel application from scratch.
+#### **Request Body**:
+```json
+{
+    "user_id": "int",    // User ID of the player (must exist in users table)
+    "level": "int",      // Level of the game (1-10)
+    "score": "int"       // Score submitted for the level
+}
+```
 
-If you don't feel like reading, [Laracasts](https://laracasts.com) can help. Laracasts contains over 2000 video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
+#### **Response Body**:
+```json
+{
+    "status": {
+        "code": 201,
+        "description": "success"
+    },
+    "data": {
+        "id": "int",       // History submit score ID
+        "user_id": "int",  // User ID
+        "level": "int",    // Level
+        "score": "int"     // Submitted score
+    }
+}
+```
 
-## Laravel Sponsors
+### **2. Get Leaderboard**
+**POST** `/api/leaderboard`  
+Fetches the leaderboard with optional pagination. Optionally, filter by username.
 
-We would like to extend our thanks to the following sponsors for funding Laravel development. If you are interested in becoming a sponsor, please visit the Laravel [Patreon page](https://patreon.com/taylorotwell).
+**Query Parameters:**
+- `page` : The page number for pagination (default is 1).
+- `size` : Number of records per page (default is 10).
+- `username` : (Optional) Filter leaderboard by username.
 
-### Premium Partners
+#### **Response Body**:
+```json
+{
+    "status": {
+        "code": 200,
+        "description": "success get data"
+    },
+    "data": [
+        {
+            "ranking": "int",        // Ranking of the player
+            "username": "string",    // Username of the player
+            "last_level": "int",     // Last level reached by the player
+            "total_score": "int"     // Total score accumulated by the player
+        },
+        ...
+    ],
+    "pagination": {
+        "page": 1,
+        "rows_per_page": 10,
+        "total_rows": 1000,
+        "total_pages": 100
+    }
+}
 
-- **[Vehikl](https://vehikl.com/)**
-- **[Tighten Co.](https://tighten.co)**
-- **[Kirschbaum Development Group](https://kirschbaumdevelopment.com)**
-- **[64 Robots](https://64robots.com)**
-- **[Cubet Techno Labs](https://cubettech.com)**
-- **[Cyber-Duck](https://cyber-duck.co.uk)**
-- **[Many](https://www.many.co.uk)**
-- **[Webdock, Fast VPS Hosting](https://www.webdock.io/en)**
-- **[DevSquad](https://devsquad.com)**
-- **[Curotec](https://www.curotec.com/services/technologies/laravel/)**
-- **[OP.GG](https://op.gg)**
-- **[WebReinvent](https://webreinvent.com/?utm_source=laravel&utm_medium=github&utm_campaign=patreon-sponsors)**
-- **[Lendio](https://lendio.com)**
+```
 
-## Contributing
+### **3. Assessment API**
+**POST** `/api/assesment`  
+Sends an assessment request to an external system, with the signature to ensure security.
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+**Request Headers:**
+- `X-Nonce` :  Randomly generated string (different on each request).
+- `X-API-Signature` : SHA256 encoded string generated using the formula `nonce + timestamp + secret_key`.
 
-## Code of Conduct
+#### **Request Body**:
+```json
+{
+    "timestamp": "int"  // 13-digit epoch timestamp
+}
+```
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+#### **Response Body**:
+```json
+{
+    "message": "Request sent successfully!",
+    "data": {
+        "success": true,
+        "request_ts": "int", // Request timestamp
+        "message": "OK"
+    }
+}
+```
 
-## Security Vulnerabilities
+---
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+## **Data Model**
 
-## License
+### **1. User Model**
+The User model is the default Laravel model for users but is extended with a `username` attribute.
+- **username**: Unique identifier for the user (used in the leaderboard).
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+### **2. HistorySubmitScore Model**
+The HistorySubmitScore model stores the score history for users at each level.
+- `user_id` : Foreign key referencing the users table.
+- `level` : The level at which the score was submitted.
+- `score` : The score submitted for that level.
+
+
+---
+
+## **How to Use**
+### **1. Install Dependencies :**
+Run `composer install` to install the necessary dependencies.
+
+### **2. Env Configuration :**
+Set up your .env file with your database connection credentials. For the example : 
+```env
+DB_CONNECTION=mysql
+DB_HOST=localhost
+DB_PORT=3306
+DB_DATABASE=game_leaderboard
+DB_USERNAME=laraveluser
+DB_PASSWORD=password
+
+REDIS_HOST=localhost
+REDIS_PASSWORD=null
+REDIS_PORT=6379
+CACHE_DRIVER=redis
+REDIS_CLIENT=phpredis 
+REDIS_PREFIX=laravel_database_
+CACHE_PREFIX=laravel_cache_
+LEADERBOARD_CACHE_DURATION=300
+LEADERBOARD_CACHE_PREFIX=leaderboard_
+
+SECRET_KEY=ABC123xyz
+API_URL=https://unisync.alphagames.my.id/api/assessment
+```
+
+### **3. Migrate and Seed Database :**
+Run the following commands to migrate and seed 10,000 users and their respective score history:
+- Migration
+```bash
+php artisan migrate
+```
+- init seeder data
+```bash
+php artisan db:seed
+```
