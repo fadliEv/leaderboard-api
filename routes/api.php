@@ -16,3 +16,4 @@ use App\Http\Controllers\LeaderboardController;
 */
 
 Route::get('/leaderboard', [LeaderboardController::class, 'getLeaderboard']);
+Route::post('/submit-history', [LeaderboardController::class, 'submitHistoryScore']);

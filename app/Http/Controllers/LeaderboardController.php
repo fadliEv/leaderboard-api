@@ -2,62 +2,149 @@
 
 namespace App\Http\Controllers;
 
+
+use App\Models\HistorySubmitScore;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use App\Utils\ApiResponse;
+use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Collection;
+use Illuminate\Validation\Validator as ValidationValidator;
 
 class LeaderboardController extends Controller
 {
-    public function getLeaderboard(Request $request)
+    public function submitHistoryScore(Request $request): JsonResponse
     {
-        // Variabel untuk pagination
-        $page = (int) $request->query('page', 1);
-        $size = (int) $request->query('size', 10);
-        $username = $request->query('username', null); // Jika ada username untuk filter
+        $validationResponse = $this->validateScoreRequest($request);
+        if ($validationResponse) {
+            return $validationResponse;
+        }
 
         try {
-            // Mendapatkan leaderboard query tanpa pagination
+            $history = $this->createHistoryScore($request);
+            return $this->successResponse($history);
+        } catch (\Exception $e) {
+            return $this->serverErrorResponse($e);
+        }
+    }
+
+    public function getLeaderboard(Request $request): JsonResponse
+    {
+        $page = (int) $request->query('page', 1);
+        $size = (int) $request->query('size', 10);
+        $username = $request->query('username');
+
+        try {
             $leaderboardQuery = $this->buildLeaderboardQuery($username);
-
-            // Total Records (count seluruh data)
-            $totalRecords = $this->getTotalRecords();
-
-            // Ambil seluruh data leaderboard tanpa pagination terlebih dahulu
+            $totalRecords = $this->getTotalRecords($username);
             $leaderboardData = $leaderboardQuery->get();
-
-            // Menambahkan ranking berdasarkan total_score (ranking dihitung berdasarkan semua data)
             $rankedData = $this->addRanking($leaderboardData);
-
-            // Pagination - ambil data sesuai dengan page dan size setelah ranking
-            $totalPages = (int) ceil($totalRecords / $size); // Total halaman berdasarkan total records dan size
-
-            // Gunakan `values()` untuk memastikan data tetap array numerik
+            $totalPages = (int) ceil($totalRecords / $size);
             $pagedData = $this->applyPagination($rankedData->values(), $page, $size);
 
-            // Return the successful response with leaderboard data and pagination
             return ApiResponse::pagedResponse($pagedData, $page, $size, $totalRecords, $totalPages);
         } catch (\Exception $e) {
-            // Handle exception and return error response
             return $this->errorResponse($e);
         }
     }
-    
-    protected function buildLeaderboardQuery($username = null)
+
+    protected function validateScoreRequest(Request $request): ?JsonResponse
     {
-        // Subquery untuk mendapatkan skor tertinggi tiap user dan level
+        $validator = Validator::make($request->all(), [
+            'user_id' => 'required|exists:users,id',
+            'level' => ['required'],
+            'score' => ['required'],
+        ]);
+
+        $this->addCustomValidationRules($validator, $request);
+
+        if ($validator->fails()) {
+            return ApiResponse::singleResponse(
+                ['errors' => $validator->errors()],
+                422,
+                'Validation failed'
+            );
+        }
+
+        return null;
+    }
+
+protected function addCustomValidationRules(ValidationValidator $validator, Request $request): void
+    {
+        $validator->after(function ($validator) use ($request) {
+            $this->validateLevel($validator, $request->level);
+            $this->validateScore($validator, $request->score);
+        });
+    }
+
+
+      protected function validateLevel(ValidationValidator $validator, $level): void
+    {
+        if (!is_int($level)) {
+            $validator->errors()->add('level', 'The level must be an integer');
+            return;
+        }
+
+        if ($level < 1 || $level > 10) {
+            $validator->errors()->add('level', 'The level must be between 1 and 10');
+        }
+    }
+
+    /**
+     * Validate score requirements
+     */
+    protected function validateScore(ValidationValidator $validator, $score): void
+    {
+        if (!is_int($score)) {
+            $validator->errors()->add('score', 'The score must be an integer');
+            return;
+        }
+
+        if ($score < 1 || $score > 50000) {
+            $validator->errors()->add('score', 'The score must be between 1 and 15000');
+        }
+    }
+
+    protected function createHistoryScore(Request $request): HistorySubmitScore
+    {
+        return HistorySubmitScore::create([
+            'user_id' => $request->user_id,
+            'level' => $request->level,
+            'score' => $request->score,
+        ]);
+    }
+
+    protected function successResponse(HistorySubmitScore $history): JsonResponse
+    {
+        return ApiResponse::singleResponse([
+            'message' => 'Score submitted successfully',
+            'data' => $history
+        ], 201, 'Success');
+    }
+
+    protected function serverErrorResponse(\Exception $e): JsonResponse
+    {
+        logger()->error('Score submission failed: ' . $e->getMessage());
+        
+        return ApiResponse::singleResponse([
+            'error' => 'Internal server error'
+        ], 500, 'Server Error');
+    }
+
+    protected function buildLeaderboardQuery(?string $username = null)
+    {
         $subQuery = DB::table('history_submit_score')
             ->select('user_id', 'level', DB::raw('MAX(score) as total_score'))
-            ->groupBy('user_id', 'level'); // Group by user_id dan level
+            ->groupBy('user_id', 'level');
 
-        // Main leaderboard query
         $leaderboard = DB::table(DB::raw("({$subQuery->toSql()}) as t"))
-            ->mergeBindings($subQuery) // Merge bindings from the subquery
-            ->join('users', 'users.id', '=', 't.user_id') // Join dengan tabel users
+            ->mergeBindings($subQuery)
+            ->join('users', 'users.id', '=', 't.user_id')
             ->select('users.id', 'users.username', DB::raw('SUM(t.total_score) as total_score'), DB::raw('MAX(t.level) as last_level'))
             ->groupBy('users.id', 'users.username')
-            ->orderByDesc(DB::raw('SUM(t.total_score)')); // Urutkan berdasarkan total_score
+            ->orderByDesc(DB::raw('SUM(t.total_score)'));
 
-        // Filter berdasarkan username jika ada
         if ($username) {
             $leaderboard->where('users.username', $username);
         }
@@ -65,51 +152,40 @@ class LeaderboardController extends Controller
         return $leaderboard;
     }
 
-    protected function applyPagination($data, $page, $size){
-        // Apply pagination and return a slice of the collection
-        $pagedData = $data->forPage($page, $size);
-
-        // Convert to numeric array to avoid associative keys in the response
-        return $pagedData->values();
+    protected function applyPagination(Collection $data, int $page, int $size): Collection
+    {
+        return $data->forPage($page, $size)->values();
     }
 
-    protected function getTotalRecords($username = null)
+    protected function getTotalRecords(?string $username = null): int
     {
-        // Mengambil total records dari subquery leaderboard tanpa pagination
         $subQuery = DB::table('history_submit_score')
             ->select('user_id', 'level', DB::raw('MAX(score) as total_score'))
             ->groupBy('user_id', 'level');
 
-        // Query utama untuk leaderboard
         $leaderboard = DB::table(DB::raw("({$subQuery->toSql()}) as t"))
-            ->mergeBindings($subQuery) // Merge bindings from the subquery
+            ->mergeBindings($subQuery)
             ->join('users', 'users.id', '=', 't.user_id')
             ->select('users.id');
 
-        // Jika ada filter username, tambahkan kondisi WHERE
         if ($username) {
             $leaderboard->where('users.username', $username);
         }
 
-        return $leaderboard->count(); // Total jumlah users di leaderboard
+        return $leaderboard->count();
     }
 
-
-    protected function addRanking($data)
+    protected function addRanking(Collection $data): Collection
     {
-        // Menambahkan ranking berdasarkan total_score (menggunakan collection)
-        // Urutkan data berdasarkan total_score
-        $ranked = $data->sortByDesc('total_score');
-
-        // Menambahkan ranking secara manual
         $rank = 1;
-        return $ranked->map(function ($item) use (&$rank) {
-            $item->ranking = $rank++;
-            return $item;
-        });
+        return $data->sortByDesc('total_score')
+            ->map(function ($item) use (&$rank) {
+                $item->ranking = $rank++;
+                return $item;
+            });
     }
 
-    protected function errorResponse(\Exception $e)
+    protected function errorResponse(\Exception $e): JsonResponse
     {
         return ApiResponse::singleResponse([
             'error' => $e->getMessage()
