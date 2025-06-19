@@ -151,8 +151,8 @@ CACHE_PREFIX=laravel_cache_
 LEADERBOARD_CACHE_DURATION=300
 LEADERBOARD_CACHE_PREFIX=leaderboard_
 
-SECRET_KEY=ABC123xyz
-API_URL=https://unisync.alphagames.my.id/api/assessment
+SECRET_KEY=
+API_URL=
 ```
 
 ### **3. Migrate and Seed Database :**
