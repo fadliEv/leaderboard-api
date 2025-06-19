@@ -105,6 +105,17 @@ return [
     |
     */
 
-    'prefix' => env('CACHE_PREFIX', Str::slug(env('APP_NAME', 'laravel'), '_').'_cache_'),
+    
+    'prefix' => env('CACHE_PREFIX', 'laravel_cache'),
+
+    /**
+     * Redis Cache Leaderboard
+     */
+
+    'leaderboard' => [
+        'cache_enabled' => env('LEADERBOARD_CACHE_ENABLED', true),
+        'cache_duration' => env('LEADERBOARD_CACHE_DURATION', 300),
+        'cache_prefix' => env('LEADERBOARD_CACHE_PREFIX', 'leaderboard_'),
+    ],
 
 ];

@@ -29,3 +29,10 @@ class HistorySubmitScore extends Model
         return $this->belongsTo(User::class);
     }
 }
+
+
+// apakah ranking itu akan di urutkna berdasarkan score tertinggi dari setap level
+// atau berdasarkan level tertinggi??
+
+// atau apakah semakin level tinggi itu akan semakin besar dari scorenya ??
+

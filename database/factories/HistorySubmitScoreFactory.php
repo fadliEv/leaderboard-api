@@ -22,8 +22,8 @@ class HistorySubmitScoreFactory extends Factory
     public function definition()
     {
         return [
-            'level' => $this->faker->numberBetween(1, 10),  // Level antara 1 dan 10
-            'score' => $this->faker->numberBetween(1000, 5000),  // Skor antara 1000 dan 5000
+            'level' => $this->faker->numberBetween(1, 10),
+            'score' => $this->faker->numberBetween(100, 5000),
         ];
     }
 }
