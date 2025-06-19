@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\AssessmentController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\LeaderboardController;
@@ -19,3 +20,4 @@ use Illuminate\Support\Facades\Redis;
 
 Route::get('/leaderboard', [LeaderboardController::class, 'getLeaderboard']);
 Route::post('/submit-history', [LeaderboardController::class, 'submitHistoryScore']);
+Route::post('/assessment', [AssessmentController::class, 'sendAssessment']);
